@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landmark Creator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: auto;
+            border: 2px solid black;
+            border-radius: 8px;
+        }
+        #landmarkList {
+            margin-top: 10px;
+            text-align: left;
+            width: 80%;
+            margin: auto;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Click on the Map to Add Landmarks</h2>
+    <div id="map"></div>
+    
+    <h3>Selected Landmarks</h3>
+    <ul id="landmarkList"></ul>
+    
+    <button onclick="sendLandmarks('add')">Add Notes</button>
+    <button onclick="sendLandmarks('visited')">Visited Landmarks</button>
+    <button onclick="sendLandmarks('plan')">Create Visiting Plans</button>
+
+
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        var map = L.map('map').setView([20, 0], 2); // Default global view
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let landmarks = []; // Store landmarks
+
+        map.on('click', function(e) {
+            var lat = e.latlng.lat.toFixed(6);
+            var lng = e.latlng.lng.toFixed(6);
+
+            // Ask user for landmark name and description
+            var name = prompt("Enter Landmark Name:", "Unnamed Place");
+            if (name === null) return; // If user cancels
+
+            var description = prompt("Enter Description (optional):", "No description");
+            if (description === null) description = "No description";
+
+            // Create marker with name
+            var marker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(`${name}<br>Lat: ${lat}, Lng: ${lng}`)
+                .openPopup();
+
+            // Store landmark data
+            landmarks.push({ 
+                name: name,
+                latitude: lat, 
+                longitude: lng,
+                description: description,
+                category: "unknown" // You can later ask category too if you want
+            });
+
+            updateLandmarkList();
+        });
+
+
+        // Update landmark list in UI
+        function updateLandmarkList() {
+            let list = document.getElementById('landmarkList');
+            list.innerHTML = "";
+            landmarks.forEach((point, index) => {
+                let li = document.createElement('li');
+                li.textContent = `Landmark ${index + 1}: ${point.name} (Lat ${point.latitude}, Lng ${point.longitude})`;
+                list.appendChild(li);
+            });
+        }
+
+
+        // Send landmarks to backend
+        function sendLandmarks(action) {
+            if (action === 'add') {
+                // Add landmarks (POST /api/landmarks)
+
+                if (landmarks.length === 0) {
+                    alert("No landmarks selected!");
+                    return;
+                }
+
+                // Loop through each landmark and send individually
+                landmarks.forEach((point) => {
+                    const landmarkData = {
+                        name: point.name,
+                        latitude: point.latitude,
+                        longitude: point.longitude,
+                        description: point.description,
+                        category: "unknown"
+                    };
+
+
+                    fetch('http://localhost:5000/api/landmarks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(landmarkData)
+                    })
+                    .then(response => response.json())
+                    .then(data => console.log('Added:', data))
+                    .catch(error => console.error('Error:', error));
+                });
+
+                alert('Landmarks sent to server.');
+
+            } else if (action === 'visited') {
+                // Get visited landmarks (GET /api/visited)
+
+                fetch('http://localhost:5000/api/visited')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Visited Landmarks:', data);
+                        alert('Visited landmarks loaded. Check console!');
+                        // Later you can show them nicely in HTML!
+                    })
+                    .catch(error => console.error('Error:', error));
+
+            } else if (action === 'plan') {
+                alert('Create Visiting Plan - Coming soon!');
+            }
+        }
+    </script>
+</body>
+</html>
